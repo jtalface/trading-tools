@@ -1,0 +1,25 @@
+{
+  "name": "trading-tools",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Research-only stock trading intelligence suite.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @trading-tools/api & npm run dev -w @trading-tools/web",
+    "build": "npm run build -w @trading-tools/shared && npm run build -w @trading-tools/api && npm run build -w @trading-tools/web",
+    "test": "npm run test -w @trading-tools/api",
+    "lint": "npm run lint -w @trading-tools/api && npm run lint -w @trading-tools/web",
+    "prisma:generate": "prisma generate --schema prisma/schema.prisma",
+    "prisma:migrate": "prisma migrate dev --schema prisma/schema.prisma",
+    "prisma:seed": "tsx prisma/seed.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "prisma": "^5.16.1",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.3"
+  }
+}
