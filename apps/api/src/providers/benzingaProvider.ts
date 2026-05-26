@@ -10,7 +10,10 @@ export class BenzingaProvider implements AnalystDataProvider {
 
   private async get<T>(path: string): Promise<T> {
     const response = await fetch(`${this.baseUrl}${path}`, {
-      headers: { accept: "application/json", token: this.apiKey }
+      headers: {
+        accept: "application/json",
+        Authorization: `token ${this.apiKey}`
+      }
     });
     if (!response.ok) throw new Error(`Benzinga request failed: ${response.status}`);
     return response.json() as Promise<T>;
