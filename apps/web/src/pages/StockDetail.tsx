@@ -46,10 +46,10 @@ export function StockDetail({ ticker }: { ticker: string }) {
         <p className="max-w-xl text-xs leading-5 text-steel">{detail.disclaimer}</p>
       </div>
       <div className="grid gap-4 md:grid-cols-4">
-        <Card><Metric label="Price" value={formatCurrency(detail.quote.price)} /></Card>
-        <Card><Metric label="Day Change" value={`${formatCurrency(detail.quote.change)} (${formatPercent(detail.quote.changePercent)})`} tone={detail.quote.change >= 0 ? "up" : "down"} /></Card>
-        <Card><Metric label="Consensus" value={detail.consensus.consensusLabel.replace("_", " ")} /></Card>
-        <Card><Metric label="Target Upside" value={formatPercent(detail.consensus.upsidePercent)} tone={(detail.consensus.upsidePercent ?? 0) >= 0 ? "up" : "down"} /></Card>
+        <Card><Metric label="Price" value={formatCurrency(detail.quote.price)} size="compact" /></Card>
+        <Card><Metric label="Day Change" value={`${formatCurrency(detail.quote.change)} (${formatPercent(detail.quote.changePercent)})`} tone={detail.quote.change >= 0 ? "up" : "down"} size="compact" /></Card>
+        <Card><Metric label="Consensus" value={detail.consensus.consensusLabel.replace("_", " ")} size="compact" /></Card>
+        <Card><Metric label="Target Upside" value={formatPercent(detail.consensus.upsidePercent)} tone={(detail.consensus.upsidePercent ?? 0) >= 0 ? "up" : "down"} size="compact" /></Card>
       </div>
       <Card title="Historical Performance">
         <div className="h-80">

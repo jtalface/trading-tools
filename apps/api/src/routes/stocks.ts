@@ -23,7 +23,12 @@ stocksRouter.get("/:ticker", async (req, res, next) => {
     const providerWarnings: Array<{ provider: string; message: string }> = [];
     const [profile, history] = await Promise.all([
       cached(`profile:${ticker}`, 86_400, () => providers.market.getCompanyProfile(ticker)),
-      cached(`history:${ticker}:1y`, 86_400, () => providers.market.getHistoricalPrices(ticker, { from: "", to: "", interval: "1d" }))
+      optionalProviderLoad<HistoricalPrice[]>(
+        providers.market.name,
+        () => cached(`history:${ticker}:1y`, 86_400, () => providers.market.getHistoricalPrices(ticker, { from: "", to: "", interval: "1d" }), 604_800),
+        [],
+        providerWarnings
+      )
     ]);
     const quote = await loadQuoteOrDeriveFromHistory(ticker, history, providerWarnings);
     const [consensus, fundamentals, ratings, news] = await Promise.all([
