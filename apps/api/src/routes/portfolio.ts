@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import type { HoldingInput, PortfolioHolding } from "@trading-tools/shared";
+import { cached } from "../lib/cache.js";
 import { sanitizeTicker } from "../lib/ticker.js";
 import { providers } from "../providers/registry.js";
 import { calculatePortfolioSummary } from "../services/portfolioCalculations.js";
@@ -116,7 +117,10 @@ function mustPortfolio(id: string) {
 async function summarize(holdings: HoldingInput[]) {
   const enriched: PortfolioHolding[] = await Promise.all(holdings.map(async (holding, index) => {
     const ticker = sanitizeTicker(holding.ticker);
-    const [quote, profile] = await Promise.all([providers.market.getQuote(ticker), providers.market.getCompanyProfile(ticker)]);
+    const [quote, profile] = await Promise.all([
+      cached(`quote:${ticker}`, 300, () => providers.market.getQuote(ticker), 3_600),
+      cached(`profile:${ticker}`, 86_400, () => providers.market.getCompanyProfile(ticker), 604_800)
+    ]);
     return {
       id: String(index),
       ...holding,

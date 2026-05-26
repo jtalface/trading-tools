@@ -22,7 +22,7 @@ stocksRouter.get("/:ticker", async (req, res, next) => {
     const ticker = sanitizeTicker(req.params.ticker);
     const [profile, quote, history] = await Promise.all([
       cached(`profile:${ticker}`, 86_400, () => providers.market.getCompanyProfile(ticker)),
-      cached(`quote:${ticker}`, 10, () => providers.market.getQuote(ticker)),
+      cached(`quote:${ticker}`, 300, () => providers.market.getQuote(ticker), 3_600),
       cached(`history:${ticker}:1y`, 86_400, () => providers.market.getHistoricalPrices(ticker, { from: "", to: "", interval: "1d" }))
     ]);
     const providerWarnings: Array<{ provider: string; message: string }> = [];
@@ -133,7 +133,7 @@ function emptyFundamentals(ticker: string): Fundamentals {
 stocksRouter.get("/:ticker/quote", async (req, res, next) => {
   try {
     const ticker = sanitizeTicker(req.params.ticker);
-    res.json(await cached(`quote:${ticker}`, 10, () => providers.market.getQuote(ticker)));
+    res.json(await cached(`quote:${ticker}`, 300, () => providers.market.getQuote(ticker), 3_600));
   } catch (error) {
     next(error);
   }
