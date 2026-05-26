@@ -4,6 +4,7 @@ import { FinnhubProvider } from "./finnhubProvider.js";
 import { FmpProvider } from "./fmpProvider.js";
 import { FactSetProvider, LsegIbesProvider, TipRanksProvider, ZacksProvider } from "./placeholders.js";
 import { PolygonProvider } from "./polygonProvider.js";
+import { AnalystDataProviderChain, FundamentalsProviderChain, MarketDataProviderChain, NewsProviderChain } from "./providerChain.js";
 import { UnavailableProvider } from "./unavailableProvider.js";
 
 const fmp = env.fmpApiKey ? new FmpProvider(env.fmpApiKey) : undefined;
@@ -15,11 +16,15 @@ const unavailableAnalyst = new UnavailableProvider("analyst-data", "set BENZINGA
 const unavailableFundamentals = new UnavailableProvider("fundamentals", "set FMP_API_KEY");
 const unavailableNews = new UnavailableProvider("news", "set FINNHUB_API_KEY or FMP_API_KEY");
 
+function configured<T>(provider: T | undefined): provider is T {
+  return Boolean(provider);
+}
+
 export const providers = {
-  market: polygon ?? finnhub ?? fmp ?? unavailableMarket,
-  analyst: benzinga ?? fmp ?? unavailableAnalyst,
-  fundamentals: fmp ?? unavailableFundamentals,
-  news: finnhub ?? fmp ?? unavailableNews,
+  market: new MarketDataProviderChain([polygon, finnhub, fmp].filter(configured)),
+  analyst: new AnalystDataProviderChain([benzinga, fmp].filter(configured)),
+  fundamentals: new FundamentalsProviderChain([fmp].filter(configured)),
+  news: new NewsProviderChain([finnhub, fmp].filter(configured)),
   all: [
     polygon,
     finnhub,
@@ -34,13 +39,17 @@ export const providers = {
 
 export function getProviderStatus() {
   const keys = providerKeyStatus();
+  const activeMarket = providers.market.name || unavailableMarket.name;
+  const activeAnalyst = providers.analyst.name || unavailableAnalyst.name;
+  const activeFundamentals = providers.fundamentals.name || unavailableFundamentals.name;
+  const activeNews = providers.news.name || unavailableNews.name;
   return {
     keys,
     active: {
-      market: providers.market.name,
-      analyst: providers.analyst.name,
-      fundamentals: providers.fundamentals.name,
-      news: providers.news.name
+      market: activeMarket,
+      analyst: activeAnalyst,
+      fundamentals: activeFundamentals,
+      news: activeNews
     },
     freshnessPolicy: {
       quotes: "5-15 seconds",

@@ -55,26 +55,46 @@ export class PolygonProvider implements MarketDataProvider {
   }
 
   async getQuote(ticker: string): Promise<Quote> {
-    const payload = await this.get<PolygonSnapshot>(`/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}`);
-    const row = payload.ticker;
-    if (!row) throw new Error(`No Polygon quote found for ${ticker}`);
-    const price = row.lastTrade?.p ?? row.day?.c ?? row.prevDay?.c;
-    const previousClose = row.prevDay?.c;
-    if (price === undefined || previousClose === undefined) throw new Error(`Incomplete Polygon quote for ${ticker}`);
+    try {
+      const payload = await this.get<PolygonSnapshot>(`/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}`);
+      const row = payload.ticker;
+      if (!row) throw new Error(`No Polygon quote found for ${ticker}`);
+      const price = row.lastTrade?.p ?? row.day?.c ?? row.prevDay?.c;
+      const previousClose = row.prevDay?.c;
+      if (price === undefined || previousClose === undefined) throw new Error(`Incomplete Polygon quote for ${ticker}`);
 
-    return {
-      ticker,
-      price,
-      previousClose,
-      open: row.day?.o,
-      high: row.day?.h,
-      low: row.day?.l,
-      volume: row.day?.v,
-      change: price - previousClose,
-      changePercent: ((price - previousClose) / previousClose) * 100,
-      timestamp: new Date(row.lastTrade?.t ? row.lastTrade.t / 1_000_000 : Date.now()).toISOString(),
-      provider: this.name
-    };
+      return {
+        ticker,
+        price,
+        previousClose,
+        open: row.day?.o,
+        high: row.day?.h,
+        low: row.day?.l,
+        volume: row.day?.v,
+        change: price - previousClose,
+        changePercent: ((price - previousClose) / previousClose) * 100,
+        timestamp: new Date(row.lastTrade?.t ? row.lastTrade.t / 1_000_000 : Date.now()).toISOString(),
+        provider: this.name
+      };
+    } catch (error) {
+      const payload = await this.get<{ results?: PolygonAgg[] }>(`/v2/aggs/ticker/${ticker}/prev?adjusted=true`);
+      const row = payload.results?.[0];
+      if (!row) throw error;
+      const previousClose = row.o;
+      return {
+        ticker,
+        price: row.c,
+        previousClose,
+        open: row.o,
+        high: row.h,
+        low: row.l,
+        volume: row.v,
+        change: row.c - previousClose,
+        changePercent: previousClose === 0 ? 0 : ((row.c - previousClose) / previousClose) * 100,
+        timestamp: new Date(row.t).toISOString(),
+        provider: `${this.name}:previous-close`
+      };
+    }
   }
 
   async getHistoricalPrices(ticker: string, range: DateRange): Promise<HistoricalPrice[]> {

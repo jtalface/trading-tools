@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import type { AnalystRating, ConsensusRating, Fundamentals, NewsItem } from "@trading-tools/shared";
 import { cached } from "../lib/cache.js";
 import { sanitizeTicker } from "../lib/ticker.js";
 import { providers } from "../providers/registry.js";
@@ -19,20 +20,43 @@ stocksRouter.get("/search", async (req, res, next) => {
 stocksRouter.get("/:ticker", async (req, res, next) => {
   try {
     const ticker = sanitizeTicker(req.params.ticker);
-    const [profile, quote, consensus, fundamentals, history, ratings, news] = await Promise.all([
+    const [profile, quote, history] = await Promise.all([
       cached(`profile:${ticker}`, 86_400, () => providers.market.getCompanyProfile(ticker)),
       cached(`quote:${ticker}`, 10, () => providers.market.getQuote(ticker)),
-      cached(`consensus:${ticker}`, 3_600, () => providers.analyst.getConsensusRating(ticker)),
-      cached(`fundamentals:${ticker}`, 43_200, () => providers.fundamentals.getFundamentals(ticker)),
-      cached(`history:${ticker}:1y`, 86_400, () => providers.market.getHistoricalPrices(ticker, { from: "", to: "", interval: "1d" })),
-      cached(`ratings:${ticker}`, 3_600, () => providers.analyst.getAnalystRatings(ticker)),
-      cached(`news:${ticker}`, 900, () => providers.news.getNews(ticker))
+      cached(`history:${ticker}:1y`, 86_400, () => providers.market.getHistoricalPrices(ticker, { from: "", to: "", interval: "1d" }))
+    ]);
+    const providerWarnings: Array<{ provider: string; message: string }> = [];
+    const [consensus, fundamentals, ratings, news] = await Promise.all([
+      optionalProviderLoad(
+        providers.analyst.name,
+        () => cached(`consensus:${ticker}`, 3_600, () => providers.analyst.getConsensusRating(ticker)),
+        emptyConsensus(ticker),
+        providerWarnings
+      ),
+      optionalProviderLoad(
+        providers.fundamentals.name,
+        () => cached(`fundamentals:${ticker}`, 43_200, () => providers.fundamentals.getFundamentals(ticker)),
+        emptyFundamentals(ticker),
+        providerWarnings
+      ),
+      optionalProviderLoad<AnalystRating[]>(
+        providers.analyst.name,
+        () => cached(`ratings:${ticker}`, 3_600, () => providers.analyst.getAnalystRatings(ticker)),
+        [],
+        providerWarnings
+      ),
+      optionalProviderLoad<NewsItem[]>(
+        providers.news.name,
+        () => cached(`news:${ticker}`, 900, () => providers.news.getNews(ticker)),
+        [],
+        providerWarnings
+      )
     ]);
     const latest = history.at(-1);
     const first = history[0];
     const ytdStart = history.find((price) => price.date.startsWith(`${new Date().getFullYear()}-`)) ?? first;
-    const high52Week = Math.max(...history.map((price) => price.high));
-    const low52Week = Math.min(...history.map((price) => price.low));
+    const high52Week = history.length ? Math.max(...history.map((price) => price.high)) : quote.high ?? quote.price;
+    const low52Week = history.length ? Math.min(...history.map((price) => price.low)) : quote.low ?? quote.price;
     const averagePriceTarget = consensus.averagePriceTarget ?? quote.price;
     res.json({
       profile,
@@ -41,6 +65,7 @@ stocksRouter.get("/:ticker", async (req, res, next) => {
       fundamentals,
       ratings: ratings.slice(0, 10),
       news,
+      providerWarnings,
       intelligence: {
         high52Week,
         low52Week,
@@ -65,6 +90,45 @@ stocksRouter.get("/:ticker", async (req, res, next) => {
     next(error);
   }
 });
+
+async function optionalProviderLoad<T>(
+  provider: string,
+  loader: () => Promise<T>,
+  fallback: T,
+  warnings: Array<{ provider: string; message: string }>
+): Promise<T> {
+  try {
+    return await loader();
+  } catch (error) {
+    warnings.push({
+      provider,
+      message: error instanceof Error ? error.message : "Provider request failed"
+    });
+    return fallback;
+  }
+}
+
+function emptyConsensus(ticker: string): ConsensusRating {
+  return {
+    ticker,
+    strongBuyCount: 0,
+    buyCount: 0,
+    holdCount: 0,
+    sellCount: 0,
+    strongSellCount: 0,
+    consensusLabel: "MIXED",
+    numberOfAnalysts: 0,
+    asOfDate: new Date().toISOString(),
+    provider: "unavailable"
+  };
+}
+
+function emptyFundamentals(ticker: string): Fundamentals {
+  return {
+    ticker,
+    provider: "unavailable"
+  };
+}
 
 stocksRouter.get("/:ticker/quote", async (req, res, next) => {
   try {
