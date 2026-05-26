@@ -1,4 +1,8 @@
-import "dotenv/config";
+import { config } from "dotenv";
+
+if (process.env.NODE_ENV !== "test") {
+  config({ path: new URL("../../../../.env", import.meta.url).pathname });
+}
 
 export const env = {
   nodeEnv: process.env.NODE_ENV ?? "development",
