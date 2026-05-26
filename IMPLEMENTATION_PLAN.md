@@ -22,7 +22,7 @@ This application is a research, monitoring, and portfolio intelligence platform.
 - Quote lookup and stock detail summary
 - Manual portfolio CRUD
 - Live portfolio value calculations
-- FMP provider plus mock fallback
+- Real provider-backed quote, profile, and history lookup
 - Basic historical charts
 
 ## Phase 2

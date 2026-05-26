@@ -6,6 +6,7 @@ export const notFound: RequestHandler = (_req, res) => {
 
 export const errorHandler: ErrorRequestHandler = (error, _req, res, _next) => {
   const message = error instanceof Error ? error.message : "Unknown error";
-  const status = message.toLowerCase().includes("invalid") ? 400 : 500;
+  const statusCode = typeof error === "object" && error && "statusCode" in error ? Number(error.statusCode) : undefined;
+  const status = statusCode ?? (message.toLowerCase().includes("invalid") ? 400 : 500);
   res.status(status).json({ error: message });
 };

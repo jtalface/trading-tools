@@ -10,13 +10,9 @@ export const portfolioRouter = Router();
 const portfolios = new Map<string, { id: string; name: string; baseCurrency: string; holdings: HoldingInput[] }>([
   ["demo", {
     id: "demo",
-    name: "Demo Research Portfolio",
+    name: "Research Portfolio",
     baseCurrency: "USD",
-    holdings: [
-      { ticker: "AAPL", companyName: "Apple Inc.", quantity: 12, averageCost: 168.25, strategyTag: "core" },
-      { ticker: "NVDA", companyName: "NVIDIA Corporation", quantity: 5, averageCost: 720.5, strategyTag: "growth" },
-      { ticker: "JPM", companyName: "JPMorgan Chase & Co.", quantity: 18, averageCost: 182.1, strategyTag: "financials" }
-    ]
+    holdings: []
   }]
 ]);
 

@@ -23,11 +23,12 @@ prisma/    Database schema and seed data
 
 ## Providers
 
-Implemented:
+Implemented live adapters:
 
-- Mock provider for local development
 - FMP provider for quotes, search, history, profile, ratings, fundamentals, and news
 - Benzinga analyst ratings adapter
+- Polygon market-data adapter for search, profile, quote snapshots, and daily aggregate history
+- Finnhub market-data/news adapter for search, profile, quote, candles, and company news
 
 Placeholders:
 
@@ -40,6 +41,12 @@ Placeholders:
 
 Paid or enterprise integrations intentionally throw clear configuration errors instead of fake production data.
 
+Runtime behavior:
+
+- The API does not use mock market prices, analyst ratings, or fundamentals.
+- Without a configured provider key, provider-backed endpoints return `503` with a clear missing-key message.
+- Test fixtures are isolated to unit tests and are not registered by the production app.
+
 ## Setup
 
 ```bash
@@ -48,6 +55,16 @@ npm install
 npm run prisma:generate
 npm run dev
 ```
+
+At least one market data key is required for stock search, quotes, history, and live portfolio valuation:
+
+- Preferred: `POLYGON_API_KEY`
+- Alternative: `FINNHUB_API_KEY`
+- Fallback: `FMP_API_KEY`
+
+Analyst data requires `BENZINGA_API_KEY` or `FMP_API_KEY`.
+Fundamentals currently require `FMP_API_KEY`.
+News requires `FINNHUB_API_KEY` or `FMP_API_KEY`.
 
 The API runs on `http://localhost:4000`.
 The web app runs on `http://localhost:5173`.
@@ -69,7 +86,7 @@ Covered:
 
 - Rating normalization
 - Portfolio calculations
-- Provider mapping/fallback behavior
+- Provider mapping and missing-provider behavior
 - Basic API endpoint integration
 
 ## Security Notes

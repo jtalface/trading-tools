@@ -1,28 +1,34 @@
 import { env, providerKeyStatus } from "../config/env.js";
 import { BenzingaProvider } from "./benzingaProvider.js";
+import { FinnhubProvider } from "./finnhubProvider.js";
 import { FmpProvider } from "./fmpProvider.js";
-import { MockProvider } from "./mockProvider.js";
-import { FactSetProvider, FinnhubProvider, LsegIbesProvider, PolygonProvider, TipRanksProvider, ZacksProvider } from "./placeholders.js";
+import { FactSetProvider, LsegIbesProvider, TipRanksProvider, ZacksProvider } from "./placeholders.js";
+import { PolygonProvider } from "./polygonProvider.js";
+import { UnavailableProvider } from "./unavailableProvider.js";
 
-const mock = new MockProvider();
 const fmp = env.fmpApiKey ? new FmpProvider(env.fmpApiKey) : undefined;
 const benzinga = env.benzingaApiKey ? new BenzingaProvider(env.benzingaApiKey) : undefined;
+const polygon = env.polygonApiKey ? new PolygonProvider(env.polygonApiKey) : undefined;
+const finnhub = env.finnhubApiKey ? new FinnhubProvider(env.finnhubApiKey) : undefined;
+const unavailableMarket = new UnavailableProvider("market-data", "set POLYGON_API_KEY, FINNHUB_API_KEY, or FMP_API_KEY");
+const unavailableAnalyst = new UnavailableProvider("analyst-data", "set BENZINGA_API_KEY or FMP_API_KEY");
+const unavailableFundamentals = new UnavailableProvider("fundamentals", "set FMP_API_KEY");
+const unavailableNews = new UnavailableProvider("news", "set FINNHUB_API_KEY or FMP_API_KEY");
 
 export const providers = {
-  market: fmp ?? mock,
-  analyst: benzinga ?? fmp ?? mock,
-  fundamentals: fmp ?? mock,
-  news: fmp ?? mock,
+  market: polygon ?? finnhub ?? fmp ?? unavailableMarket,
+  analyst: benzinga ?? fmp ?? unavailableAnalyst,
+  fundamentals: fmp ?? unavailableFundamentals,
+  news: finnhub ?? fmp ?? unavailableNews,
   all: [
+    polygon,
+    finnhub,
     fmp,
     benzinga,
-    new PolygonProvider(env.polygonApiKey),
-    new FinnhubProvider(env.finnhubApiKey),
     new TipRanksProvider(),
     new ZacksProvider(),
     new FactSetProvider(),
-    new LsegIbesProvider(),
-    mock
+    new LsegIbesProvider()
   ].filter(Boolean)
 };
 

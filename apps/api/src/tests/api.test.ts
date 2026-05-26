@@ -11,15 +11,16 @@ describe("api endpoints", () => {
     expect(response.body.ok).toBe(true);
   });
 
-  it("serves stock quote", async () => {
+  it("returns an honest provider configuration error without API keys", async () => {
     const response = await request(app).get("/api/stocks/AAPL/quote");
-    expect(response.status).toBe(200);
-    expect(response.body.ticker).toBe("AAPL");
+    expect(response.status).toBe(503);
+    expect(response.body.error).toContain("provider is not configured");
   });
 
-  it("serves portfolio summary", async () => {
+  it("serves an empty portfolio without fake holdings", async () => {
     const response = await request(app).get("/api/portfolio");
     expect(response.status).toBe(200);
-    expect(response.body.portfolios[0].summary.totalMarketValue).toBeGreaterThan(0);
+    expect(response.body.portfolios[0].holdings).toEqual([]);
+    expect(response.body.portfolios[0].summary.totalMarketValue).toBe(0);
   });
 });
