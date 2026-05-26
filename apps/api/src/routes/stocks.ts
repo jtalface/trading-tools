@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import type { AnalystRating, ConsensusRating, Fundamentals, NewsItem } from "@trading-tools/shared";
+import type { AnalystRating, ConsensusRating, Fundamentals, HistoricalPrice, NewsItem, Quote } from "@trading-tools/shared";
 import { cached } from "../lib/cache.js";
 import { sanitizeTicker } from "../lib/ticker.js";
 import { providers } from "../providers/registry.js";
@@ -20,12 +20,12 @@ stocksRouter.get("/search", async (req, res, next) => {
 stocksRouter.get("/:ticker", async (req, res, next) => {
   try {
     const ticker = sanitizeTicker(req.params.ticker);
-    const [profile, quote, history] = await Promise.all([
+    const providerWarnings: Array<{ provider: string; message: string }> = [];
+    const [profile, history] = await Promise.all([
       cached(`profile:${ticker}`, 86_400, () => providers.market.getCompanyProfile(ticker)),
-      cached(`quote:${ticker}`, 300, () => providers.market.getQuote(ticker), 3_600),
       cached(`history:${ticker}:1y`, 86_400, () => providers.market.getHistoricalPrices(ticker, { from: "", to: "", interval: "1d" }))
     ]);
-    const providerWarnings: Array<{ provider: string; message: string }> = [];
+    const quote = await loadQuoteOrDeriveFromHistory(ticker, history, providerWarnings);
     const [consensus, fundamentals, ratings, news] = await Promise.all([
       optionalProviderLoad(
         providers.analyst.name,
@@ -133,7 +133,10 @@ function emptyFundamentals(ticker: string): Fundamentals {
 stocksRouter.get("/:ticker/quote", async (req, res, next) => {
   try {
     const ticker = sanitizeTicker(req.params.ticker);
-    res.json(await cached(`quote:${ticker}`, 300, () => providers.market.getQuote(ticker), 3_600));
+    const providerWarnings: Array<{ provider: string; message: string }> = [];
+    const history = await cached(`history:${ticker}:1y`, 86_400, () => providers.market.getHistoricalPrices(ticker, { from: "", to: "", interval: "1d" }));
+    const quote = await loadQuoteOrDeriveFromHistory(ticker, history, providerWarnings);
+    res.json(providerWarnings.length ? { ...quote, providerWarnings } : quote);
   } catch (error) {
     next(error);
   }
@@ -184,3 +187,35 @@ stocksRouter.get("/:ticker/news", async (req, res, next) => {
     next(error);
   }
 });
+
+async function loadQuoteOrDeriveFromHistory(
+  ticker: string,
+  history: HistoricalPrice[],
+  warnings: Array<{ provider: string; message: string }>
+): Promise<Quote> {
+  try {
+    return await cached(`quote:${ticker}`, 1_800, () => providers.market.getQuote(ticker), 86_400);
+  } catch (error) {
+    const latest = history.at(-1);
+    const previous = history.at(-2);
+    if (!latest) throw error;
+    warnings.push({
+      provider: providers.market.name,
+      message: error instanceof Error ? error.message : "Quote provider failed; derived quote from historical prices."
+    });
+    const previousClose = previous?.close ?? latest.open;
+    return {
+      ticker,
+      price: latest.close,
+      previousClose,
+      open: latest.open,
+      high: latest.high,
+      low: latest.low,
+      volume: latest.volume,
+      change: latest.close - previousClose,
+      changePercent: previousClose === 0 ? 0 : ((latest.close - previousClose) / previousClose) * 100,
+      timestamp: new Date(latest.date).toISOString(),
+      provider: `${latest.provider}:historical-derived`
+    };
+  }
+}

@@ -118,7 +118,7 @@ async function summarize(holdings: HoldingInput[]) {
   const enriched: PortfolioHolding[] = await Promise.all(holdings.map(async (holding, index) => {
     const ticker = sanitizeTicker(holding.ticker);
     const [quote, profile] = await Promise.all([
-      cached(`quote:${ticker}`, 300, () => providers.market.getQuote(ticker), 3_600),
+      cached(`quote:${ticker}`, 1_800, () => providers.market.getQuote(ticker), 86_400),
       cached(`profile:${ticker}`, 86_400, () => providers.market.getCompanyProfile(ticker), 604_800)
     ]);
     return {
