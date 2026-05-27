@@ -186,7 +186,14 @@ stocksRouter.get("/:ticker/history", async (req, res, next) => {
 stocksRouter.get("/:ticker/ratings", async (req, res, next) => {
   try {
     const ticker = sanitizeTicker(req.params.ticker);
-    res.json(await cached(`ratings:${ticker}`, 3_600, () => providers.analyst.getAnalystRatings(ticker)));
+    const providerWarnings: Array<{ provider: string; message: string }> = [];
+    const ratings = await optionalProviderLoad<AnalystRating[]>(
+      providers.analyst.name,
+      () => cached(`ratings:${ticker}`, 3_600, () => providers.analyst.getAnalystRatings(ticker)),
+      [],
+      providerWarnings
+    );
+    res.json({ ratings, providerWarnings });
   } catch (error) {
     next(error);
   }
@@ -195,7 +202,14 @@ stocksRouter.get("/:ticker/ratings", async (req, res, next) => {
 stocksRouter.get("/:ticker/consensus", async (req, res, next) => {
   try {
     const ticker = sanitizeTicker(req.params.ticker);
-    res.json(await cached(`consensus:${ticker}`, 3_600, () => providers.analyst.getConsensusRating(ticker)));
+    const providerWarnings: Array<{ provider: string; message: string }> = [];
+    const consensus = await optionalProviderLoad(
+      providers.analyst.name,
+      () => cached(`consensus:${ticker}`, 3_600, () => providers.analyst.getConsensusRating(ticker)),
+      emptyConsensus(ticker),
+      providerWarnings
+    );
+    res.json({ consensus, providerWarnings });
   } catch (error) {
     next(error);
   }
