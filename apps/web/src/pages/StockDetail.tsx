@@ -35,13 +35,14 @@ export function StockDetail({ ticker }: { ticker: string }) {
   if (!detail) return <Skeleton title={`Loading ${ticker}`} />;
 
   const signalSummary = detail.intelligence.signalSummary as Record<string, string>;
+  const profileMeta = [detail.profile.sector, detail.profile.industry].filter(Boolean).join(" · ");
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col justify-between gap-3 md:flex-row md:items-end">
         <div>
           <h1 className="text-2xl font-bold text-ink">{detail.profile.ticker} · {detail.profile.companyName}</h1>
-          <p className="text-sm text-steel">{detail.profile.sector} · {detail.profile.industry} · {timeAgo(detail.quote.timestamp)} via {detail.quote.provider}</p>
+          <p className="text-sm text-steel">{profileMeta ? `${profileMeta} · ` : ""}{timeAgo(detail.quote.timestamp)} via {detail.quote.provider}</p>
         </div>
         <p className="max-w-xl text-xs leading-5 text-steel">{detail.disclaimer}</p>
       </div>

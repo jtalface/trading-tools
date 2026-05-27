@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import type { AnalystRating, ConsensusRating, Fundamentals, HistoricalPrice, NewsItem, Quote } from "@trading-tools/shared";
+import type { AnalystRating, ConsensusRating, Fundamentals, HistoricalPrice, NewsItem, Quote, StockProfile } from "@trading-tools/shared";
 import { cached } from "../lib/cache.js";
 import { sanitizeTicker } from "../lib/ticker.js";
 import { providers } from "../providers/registry.js";
@@ -23,7 +23,12 @@ stocksRouter.get("/:ticker", async (req, res, next) => {
     const historyRange = ytdRange();
     const providerWarnings: Array<{ provider: string; message: string }> = [];
     const [profile, history] = await Promise.all([
-      cached(`profile:${ticker}`, 86_400, () => providers.market.getCompanyProfile(ticker)),
+      optionalProviderLoad<StockProfile>(
+        providers.market.name,
+        () => cached(`profile:${ticker}`, 86_400, () => providers.market.getCompanyProfile(ticker), 604_800),
+        fallbackProfile(ticker),
+        providerWarnings
+      ),
       optionalProviderLoad<HistoricalPrice[]>(
         providers.market.name,
         () => cached(`history:${ticker}:ytd:${historyRange.from}:${historyRange.to}`, 86_400, () => providers.market.getHistoricalPrices(ticker, historyRange), 604_800),
@@ -133,6 +138,14 @@ function emptyFundamentals(ticker: string): Fundamentals {
   return {
     ticker,
     provider: "unavailable"
+  };
+}
+
+function fallbackProfile(ticker: string): StockProfile {
+  return {
+    ticker,
+    companyName: ticker,
+    currency: "USD"
   };
 }
 
