@@ -47,19 +47,27 @@ export class FmpProvider implements MarketDataProvider, AnalystDataProvider, Fun
     };
   }
 
-  async getHistoricalPrices(ticker: string, _range: DateRange): Promise<HistoricalPrice[]> {
-    const data = await this.get<{ historical: Array<Record<string, number | string>> }>(`/historical-price-full/${ticker}?serietype=line`);
-    return (data.historical ?? []).slice(0, 365).map((row) => ({
-      ticker,
-      date: String(row.date),
-      open: Number(row.open ?? row.close),
-      high: Number(row.high ?? row.close),
-      low: Number(row.low ?? row.close),
-      close: Number(row.close),
-      adjustedClose: Number(row.adjClose ?? row.close),
-      volume: Number(row.volume ?? 0),
-      provider: this.name
-    })).reverse();
+  async getHistoricalPrices(ticker: string, range: DateRange): Promise<HistoricalPrice[]> {
+    const from = range.from ? `&from=${range.from}` : "";
+    const to = range.to ? `&to=${range.to}` : "";
+    const data = await this.get<{ historical: Array<Record<string, number | string>> }>(`/historical-price-full/${ticker}?serietype=line${from}${to}`);
+    return (data.historical ?? [])
+      .filter((row) => {
+        const date = String(row.date);
+        return (!range.from || date >= range.from) && (!range.to || date <= range.to);
+      })
+      .map((row) => ({
+        ticker,
+        date: String(row.date),
+        open: Number(row.open ?? row.close),
+        high: Number(row.high ?? row.close),
+        low: Number(row.low ?? row.close),
+        close: Number(row.close),
+        adjustedClose: Number(row.adjClose ?? row.close),
+        volume: Number(row.volume ?? 0),
+        provider: this.name
+      }))
+      .reverse();
   }
 
   async getCompanyProfile(ticker: string): Promise<StockProfile> {

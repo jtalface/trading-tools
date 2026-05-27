@@ -24,7 +24,7 @@ export function StockDetail({ ticker }: { ticker: string }) {
     setError("");
     Promise.all([
       apiGet<StockDetailResponse>(`/api/stocks/${ticker}`),
-      apiGet<Array<{ date: string; close: number }>>(`/api/stocks/${ticker}/history?range=1Y`)
+      apiGet<Array<{ date: string; close: number }>>(`/api/stocks/${ticker}/history?range=YTD`)
     ]).then(([stock, prices]) => {
       setDetail(stock);
       setHistory(prices);

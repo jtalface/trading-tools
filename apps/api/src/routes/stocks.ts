@@ -20,12 +20,13 @@ stocksRouter.get("/search", async (req, res, next) => {
 stocksRouter.get("/:ticker", async (req, res, next) => {
   try {
     const ticker = sanitizeTicker(req.params.ticker);
+    const historyRange = ytdRange();
     const providerWarnings: Array<{ provider: string; message: string }> = [];
     const [profile, history] = await Promise.all([
       cached(`profile:${ticker}`, 86_400, () => providers.market.getCompanyProfile(ticker)),
       optionalProviderLoad<HistoricalPrice[]>(
         providers.market.name,
-        () => cached(`history:${ticker}:1y`, 86_400, () => providers.market.getHistoricalPrices(ticker, { from: "", to: "", interval: "1d" }), 604_800),
+        () => cached(`history:${ticker}:ytd:${historyRange.from}:${historyRange.to}`, 86_400, () => providers.market.getHistoricalPrices(ticker, historyRange), 604_800),
         [],
         providerWarnings
       )
@@ -135,11 +136,22 @@ function emptyFundamentals(ticker: string): Fundamentals {
   };
 }
 
+function ytdRange() {
+  const now = new Date();
+  const year = now.getFullYear();
+  return {
+    from: `${year}-01-01`,
+    to: now.toISOString().slice(0, 10),
+    interval: "1d" as const
+  };
+}
+
 stocksRouter.get("/:ticker/quote", async (req, res, next) => {
   try {
     const ticker = sanitizeTicker(req.params.ticker);
+    const historyRange = ytdRange();
     const providerWarnings: Array<{ provider: string; message: string }> = [];
-    const history = await cached(`history:${ticker}:1y`, 86_400, () => providers.market.getHistoricalPrices(ticker, { from: "", to: "", interval: "1d" }));
+    const history = await cached(`history:${ticker}:ytd:${historyRange.from}:${historyRange.to}`, 86_400, () => providers.market.getHistoricalPrices(ticker, historyRange), 604_800);
     const quote = await loadQuoteOrDeriveFromHistory(ticker, history, providerWarnings);
     res.json(providerWarnings.length ? { ...quote, providerWarnings } : quote);
   } catch (error) {
@@ -150,8 +162,9 @@ stocksRouter.get("/:ticker/quote", async (req, res, next) => {
 stocksRouter.get("/:ticker/history", async (req, res, next) => {
   try {
     const ticker = sanitizeTicker(req.params.ticker);
-    const range = String(req.query.range ?? "1Y");
-    res.json(await cached(`history:${ticker}:${range}`, 86_400, () => providers.market.getHistoricalPrices(ticker, { from: "", to: "", interval: "1d" })));
+    const range = ytdRange();
+    const history = await cached(`history:${ticker}:ytd:${range.from}:${range.to}`, 86_400, () => providers.market.getHistoricalPrices(ticker, range), 604_800);
+    res.json(history.filter((price) => price.date >= range.from && price.date <= range.to));
   } catch (error) {
     next(error);
   }
